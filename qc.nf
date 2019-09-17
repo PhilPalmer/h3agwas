@@ -104,7 +104,7 @@ println "The batch file is ${params.batch}"
 
 
 
-nextflowversion =getres("nextflow -v")
+// nextflowversion =getres("nextflow -v")
 
 
 if (workflow.repository)
@@ -210,8 +210,8 @@ def fromPathReplicas = { fname, num ->
 
 
 
-
-if (params.case_control) {
+if (!params.vcf_file) {
+  if (params.case_control) {
   ccfile = params.case_control
   Channel.fromPath(ccfile).into { cc_ch; cc2_ch }
   col    = params.case_control_col
@@ -226,10 +226,11 @@ if (params.case_control) {
 	  error("\n\nThe file <${params.case_control}> given for <params.case_control> does not have a column <${params.case_control_col}>\n")
     }
 
-} else {
-  diffpheno = ""
-  col = ""
-  cc_ch  = Channel.value.into("none").into { cc_ch; cc2_ch }
+  } else {
+    diffpheno = ""
+    col = ""
+    cc_ch  = Channel.value.into("none").into { cc_ch; cc2_ch }
+  }
 }
 
 
@@ -271,20 +272,31 @@ if ( nullfile.contains(params.sexinfo_available) ) {
 
 
 
+if (params.vcf_file) {
+    Channel.fromPath(params.vcf_file)
+           .ifEmpty { exit 1, "VCF file containing  not found: ${params.vcf_file}" }
+           .into { vcf_file; vcfs_to_split }
 
+    vcfs_to_split
+        .splitCsv(header: true)
+        .map{ row -> [file(row.vcf)] }
+        .set { testVcfs }
+}
 
 
 /* Get the input files -- could be a glob
  * We match the bed, bim, fam file -- order determined lexicographically
  * not by order given, we check that they exist and then 
  * send the all the files to raw_ch and just the bim file to bim_ch */
-inpat = "${params.input_dir}/${params.input_pat}"
+if (!params.vcf_file) {
+  inpat = "${params.input_dir}/${params.input_pat}"
 
-Channel
+  Channel
    .fromFilePairs("${inpat}.{bed,bim,fam}",size:3, flat : true){ file -> file.baseName }  \
       .ifEmpty { error "No matching plink files" }        \
       .map { a -> [checker(a[1]), checker(a[2]), checker(a[3])] }\
       .separate(raw_ch, bim_ch, inpmd5ch) { a -> [a,a[1],a] }
+}
   
 
 
@@ -305,6 +317,84 @@ def getConfig = {
   return text
 }
 
+
+// if user inputs a list of vcf files merge them & convert them to plink files
+if (params.vcf_file) {
+   process file_preprocessing {
+      publishDir 'results'
+      container 'lifebitai/preprocess_gwas:latest'
+
+      input:
+      file vcfs from testVcfs.collect()
+      file vcf_file from vcf_file
+
+      output:
+      file 'merged.vcf' into vcf_plink
+      file 'sample.phe' into data, cc_ch, cc2_ch
+
+      script:
+      """
+      # iterate through urls in csv replacing s3 path with the local one
+      urls="\$(tail -n+2 $vcf_file | awk -F',' '{print \$2}')"
+      for url in \$(echo \$urls); do
+            vcf="\${url##*/}"
+            sed -i -e "s~\$url~\$vcf~g" $vcf_file
+      done
+
+      # bgzip uncompressed vcfs
+      for vcf in \$(tail -n+2 $vcf_file | awk -F',' '{print \$2}'); do
+            if [ \${vcf: -4} == ".vcf" ]; then
+                  bgzip -c \$vcf > \${vcf}.gz
+                  sed -i "s/\$vcf/\${vcf}.gz/g" $vcf_file 
+            fi
+      done
+
+      # remove any prexisting columns for sex 
+      if grep -Fq "SEX" $vcf_file; then
+            awk -F, -v OFS=, 'NR==1{for (i=1;i<=NF;i++)if (\$i=="SEX"){n=i-1;m=NF-(i==NF)}} {for(i=1;i<=NF;i+=1+(i==n))printf "%s%s",\$i,i==m?ORS:OFS}' $vcf_file > tmp.csv && mv tmp.csv $vcf_file
+      fi
+
+      # determine sex of each individual from VCF file & add to csv file
+      echo 'SEX' > sex.txt
+      for vcf in \$(tail -n+2 $vcf_file | awk -F',' '{print \$2}'); do
+            bcftools index -f \$vcf
+            SEX="\$(bcftools plugin vcf2sex \$vcf)"
+            if [[ \$SEX == *M ]]; then
+                  echo "1" >> sex.txt
+            elif [ \$SEX == *F ]]; then
+                  echo "2" >> sex.txt
+            fi
+      done
+
+      # make fam file & merge vcfs
+      paste -d, sex.txt $vcf_file > tmp.csv && mv tmp.csv $vcf_file
+      make_fam2.py $vcf_file
+      vcfs=\$(tail -n+2 $vcf_file | awk -F',' '{print \$3}')
+      bcftools merge --force-samples \$vcfs > merged.vcf
+      """
+  }
+
+  process plink {
+  publishDir "${params.output_dir}/plink", mode: 'copy'
+
+  input:
+  file vcf from vcf_plink
+  file fam from data
+
+  output:
+  set file('*.bed'), file('*.bim'), file('*.fam') into raw_src_ch, raw_src_ch2
+
+  script:
+  """
+  sed '1d' $fam > tmpfile; mv tmpfile $fam
+  # remove contigs eg GL000229.1 to prevent errors
+  sed -i '/^GL/ d' $vcf
+  plink --vcf $vcf
+  rm plink.fam
+  mv $fam plink.fam
+  """
+  }
+}
 
 
 // Generate MD5 sums of output files
