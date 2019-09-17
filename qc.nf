@@ -613,8 +613,8 @@ process drawPCA {
       set file(eigvals), file(eigvecs) from pcares
       file cc from cc2_ch
     output:
-      set  file ("eigenvalue.pdf"), file(output) into report["pca"]
-    publishDir params.output_dir, overwrite:true, mode:'copy',pattern: "*.pdf"
+      set  file ("eigenvalue.png"), file(output) into report["pca"]
+    publishDir params.output_dir, overwrite:true, mode:'copy',pattern: "*.png"
     script:
       base=eigvals.baseName
       cc_fname = params.case_control
