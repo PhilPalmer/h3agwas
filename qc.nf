@@ -246,6 +246,10 @@ configfile   = Channel.create()
 
 
 println(params.samplesheet)
+if (params.samplesheet == "0") {
+  def newFile = new File("0")
+  newFile.createNewFile()
+}
 sample_sheet_ch = file(params.samplesheet)
 
 
