@@ -104,7 +104,7 @@ println "The batch file is ${params.batch}"
 
 
 
-nextflowversion =getres("nextflow -v")
+nextflowversion =getres("/home/ec2-user/nextflow -v")
 
 
 if (workflow.repository)
