@@ -104,7 +104,7 @@ println "The batch file is ${params.batch}"
 
 
 
-// nextflowversion =getres("nextflow -v")
+nextflowversion =getres("nextflow -v")
 
 
 if (workflow.repository)
@@ -209,10 +209,10 @@ def fromPathReplicas = { fname, num ->
 }
 
 
-if (params.pheno) {
+if (params.vcf_file) {
   col = params.pheno
   diffpheno = "--pheno cc.phe --pheno-name $col"
-} else (!params.vcf_file) {
+} else {
   if (params.case_control) {
     ccfile = params.case_control
     Channel.fromPath(ccfile).into { cc_ch; cc2_ch }
