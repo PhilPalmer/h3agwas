@@ -209,22 +209,24 @@ def fromPathReplicas = { fname, num ->
 }
 
 
-
-if (!params.vcf_file) {
-  if (params.case_control) {
-  ccfile = params.case_control
-  Channel.fromPath(ccfile).into { cc_ch; cc2_ch }
-  col    = params.case_control_col
+if (params.pheno) {
+  col = params.pheno
   diffpheno = "--pheno cc.phe --pheno-name $col"
-  if (! file(params.case_control).exists()) {
-     error("\n\nThe file <${params.case_control}> given for <params.case_control> does not exist")
-    } else {
-      def line  
-      new File(params.case_control).withReader { line = it.readLine() }  
-      fields = line.split()
-      if (! fields.contains(params.case_control_col))
-	  error("\n\nThe file <${params.case_control}> given for <params.case_control> does not have a column <${params.case_control_col}>\n")
-    }
+} else (!params.vcf_file) {
+  if (params.case_control) {
+    ccfile = params.case_control
+    Channel.fromPath(ccfile).into { cc_ch; cc2_ch }
+    col    = params.pheno
+    diffpheno = "--pheno cc.phe --pheno-name $col"
+    if (! file(params.case_control).exists()) {
+      error("\n\nThe file <${params.case_control}> given for <params.case_control> does not exist")
+      } else {
+        def line  
+        new File(params.case_control).withReader { line = it.readLine() }  
+        fields = line.split()
+        if (! fields.contains(params.case_control_col))
+      error("\n\nThe file <${params.case_control}> given for <params.case_control> does not have a column <${params.case_control_col}>\n")
+      }
 
   } else {
     diffpheno = ""
@@ -297,8 +299,6 @@ if (!params.vcf_file) {
       .map { a -> [checker(a[1]), checker(a[2]), checker(a[3])] }\
       .separate(raw_ch, bim_ch, inpmd5ch) { a -> [a,a[1],a] }
 }
-  
-
 
 def getConfig = {
   all_files = workflow.configFiles.unique()
@@ -382,7 +382,7 @@ if (params.vcf_file) {
   file fam from data
 
   output:
-  set file('*.bed'), file('*.bim'), file('*.fam') into raw_src_ch, raw_src_ch2
+  set file('*.bed'), file('*.bim'), file('*.fam') into plink_files
 
   script:
   """
@@ -394,6 +394,8 @@ if (params.vcf_file) {
   mv $fam plink.fam
   """
   }
+
+  plink_files.separate(raw_ch, bim_ch, inpmd5ch) { a -> [a,a[1],a] }
 }
 
 
