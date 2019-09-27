@@ -1230,6 +1230,7 @@ if (params.assoc+params.fisher+params.logistic+params.linear > 0) {
       publishDir "${params.output_dir}/${test}", overwrite:true, mode:'copy'
       output:
         set val(test), val(pheno_name), file("${outfname}.*") into out_ch
+        file("snps.txt") into snps
       script:
        base = "cleaned"
        pheno_name = pheno_name.replaceFirst("/.*","")
