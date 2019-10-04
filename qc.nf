@@ -365,7 +365,7 @@ if (params.vcf_file) {
             SEX="\$(bcftools plugin vcf2sex \$vcf)"
             if [[ \$SEX == *M ]]; then
                   echo "1" >> sex.txt
-            elif [ \$SEX == *F ]]; then
+            elif [[ \$SEX == *F ]]; then
                   echo "2" >> sex.txt
             fi
       done
@@ -393,7 +393,7 @@ if (params.vcf_file) {
   sed '1d' $fam > tmpfile; mv tmpfile $fam
   # remove contigs eg GL000229.1 to prevent errors
   sed -i '/^GL/ d' $vcf
-  plink --vcf $vcf
+  plink --vcf $vcf --make-bed
   rm plink.fam
   mv $fam plink.fam
   """
@@ -669,7 +669,7 @@ process removeQCPhase1 {
      output = "${base}-c".replace(".","_")
      """
      # remove really realy bad SNPs and really bad individuals
-     plink $K --autosome --bfile $base $sexinfo --mind 0.1 --geno 0.1 --make-bed --out temp1
+     plink $K --autosome --bfile $base $sexinfo --mind $params.mind --geno 0.1 --make-bed --out temp1
      plink $K --bfile temp1  $sexinfo --mind $params.cut_mind --make-bed --out temp2
      plink $K --bfile temp2  $sexinfo --geno $params.cut_geno --make-bed --out temp3
      plink $K --bfile temp3  $sexinfo --maf $params.cut_maf --make-bed --out temp4

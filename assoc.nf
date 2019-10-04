@@ -430,7 +430,7 @@ if (!params.data && params.vcf) {
             SEX="\$(bcftools plugin vcf2sex \$vcf)"
             if [[ \$SEX == *M ]]; then
                   echo "1" >> sex.txt
-            elif [ \$SEX == *F ]]; then
+            elif [[ \$SEX == *F ]]; then
                   echo "2" >> sex.txt
             fi
       done
@@ -460,7 +460,7 @@ if(params.vcf || params.vcf_file){
   sed '1d' $fam > tmpfile; mv tmpfile $fam
   # remove contigs eg GL000229.1 to prevent errors
   sed -i '/^GL/ d' $vcf
-  plink --vcf $vcf
+  plink --vcf $vcf --make-bed
   rm plink.fam
   mv $fam plink.fam
   """
