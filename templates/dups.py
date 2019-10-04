@@ -34,12 +34,7 @@ def removeOnBP(fname, out):
         bp    = int(data[3])
         if (chrom, bp) == (old_chrom, old_bp):
             out.write("%s\\n"%snp)
-            try:
-                (old_chrom,old_snp,old_bp) = (chrom,snp,bp)
-            except:
-                print("old_chrom: ",old_chrom)
-                print("old_snp: ",old_snp)
-                print("old_bp: ",old_bp)
+            (old_chrom,old_snp,old_bp) = (chrom,snp,bp)
         elif (chrom, bp) > (old_chrom, old_bp):
             (old_chrom,old_snp,old_bp) = (chrom,snp,bp)
         else:
