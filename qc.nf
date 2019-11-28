@@ -375,7 +375,7 @@ if (params.vcf_file) {
       make_fam2.py $vcf_file
 
       # merge vcfs (split into 500 file chunks when there's many files to prevent errors)
-      n_vcfs=\$(tail -n+2 \$vcf_file | wc -l)
+      n_vcfs=\$(tail -n+2 $vcf_file | wc -l)
       if ((\$n_vcfs>500)); then
         tail -n+2 $vcf_file | awk -F',' '{print \$3}' | split -l 500 - subset_vcfs
         for i in subset_vcfs*; do bcftools merge --force-samples -l \$i > \${i}.vcf; done
