@@ -370,11 +370,21 @@ if (params.vcf_file) {
             fi
       done
 
-      # make fam file & merge vcfs
+      # make fam file
       paste -d, sex.txt $vcf_file > tmp.csv && mv tmp.csv $vcf_file
       make_fam2.py $vcf_file
-      vcfs=\$(tail -n+2 $vcf_file | awk -F',' '{print \$3}')
-      bcftools merge --force-samples \$vcfs > merged.vcf
+
+      # merge vcfs (split into 500 file chunks when there's many files to prevent errors)
+      n_vcfs=\$(tail -n+2 \$vcf_file | wc -l)
+      if ((\$n_vcfs>500)); then
+        tail -n+2 $vcf_file | awk -F',' '{print \$3}' | split -l 500 - subset_vcfs
+        for i in subset_vcfs*; do bcftools merge --force-samples -l \$i > \${i}.vcf; done
+        ls subset_vcfs*.vcf | xargs -n1 '-I{}' sh -c 'bgzip {} && tabix {}.gz'
+        bcftools merge --force-samples subset_vcfs*.vcf.gz > merged.vcf
+      else
+        vcfs=\$(tail -n+2 $vcf_file | awk -F',' '{print \$3}')
+        bcftools merge --force-samples \$vcfs > merged.vcf
+      fi
       """
   }
 
